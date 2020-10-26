@@ -1,0 +1,240 @@
+---
+title: "Exploring miles per (US) gallon relationship with type of transmission"
+author: "Wildson B B Lima"
+date: "25/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+### Packages
+
+We are going to need some R packages to assist the analysis.
+
+```{r}
+library(dplyr, warn.conflicts = F)
+library(ggplot2, warn.conflicts = F)
+library(ggpubr, warn.conflicts = F)
+```
+
+### Executive summary
+
+We are interested here in exploring a dataset to find the relationship between miles per gallon (MPG) and some other variables. The following questions are of particular interest here:
+
+* Is automatic or manual transmission better for MPG?
+
+* Quantifying the MPG difference between automatic and manual transmissions.
+
+We were able to model a linear regression from which we found that on average a manual car can run 1.8 more miles per (US) gallon than a automatic car. This result is very uncertain from a 95% significance level, though, with a confidence interval ranging from -1.06 to 4.68 mpg.  
+
+### Data
+
+We are going to use here the mtcars dataset. Its data was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models). We have the following variables in the dataset:
+
+[, 1]	mpg	Miles/(US) gallon --- [, 2]	cyl	Number of cylinders --- [, 3]	disp	Displacement (cu.in.) --- [, 4]	hp	Gross horsepower
+[, 5]	drat	Rear axle ratio --- [, 6]	wt	Weight (1000 lbs) --- [, 7]	qsec	1/4 mile time --- [, 8]	vs	Engine (0 = V-shaped, 1 = straight) [, 9]	am	Transmission (0 = automatic, 1 = manual) --- [,10]	gear	Number of forward gears --- [,11]	carb	Number of carburetors  
+
+### Exploratory Data Analysis
+
+First, let's take a look at the data.
+
+```{r}
+str(mtcars)
+```
+We can see from here data is all loaded as numeric, even though some variables are categorical. We need to change this right away before doing more with the data because this affects all types of analysis.
+
+```{r}
+mtcars2 <- within(mtcars, {
+   vs <- factor(vs, labels = c("V", "S"))
+   am <- factor(am, labels = c("automatic", "manual"))
+   cyl  <- ordered(cyl)
+   gear <- ordered(gear)
+   carb <- ordered(carb)
+})
+```
+
+Now, let's take a look at the summary of the data.
+
+```{r}
+summary(mtcars2$mpg)
+```
+
+Ok, that seems good enough. We can see mpg mean here is 20.09 and data ranges from 15.43 to 33.9 mpg. A histogram better illustrates how data is distributed. So we do one here.
+
+```{r fig.show='hide'}
+g <- ggplot(data = mtcars2, aes(x = mpg)) 
+g<- g + geom_histogram(binwidth =  5) 
+g<- g + scale_x_continuous(name="Miles per gallon", breaks=seq(0,35,5))
+g<- g + labs(title = 'Miles per (US) gallon data distribution', y = 'Count')
+g<- g + theme_bw()
+g<- g+ geom_vline(xintercept = mean(mtcars2$mpg),colour = 'red', size = 1)
+g
+```
+
+We can see it is a little bit skewed, but because we have sample size of 32, we are fine about normality assumptions.
+
+### Modeling 
+
+For the model selection, we’re gonna use a backward elimination, starting with all variables. Variables are removed one at a time, till we can no longer improve the adjusted $R^2$. We chose to improve adjusted $R^2$ because it better describes the strength of a model fit, since this metric is more responsive to explanatory variables that add more explanation about the variability of the response variable to the model[^1]. We start like this:
+
+```{r}
+fit <- lm(data = mtcars2, formula = mpg ~ .)
+summary(fit)
+```
+
+We have good adjusted R-squared of `r round(summary(fit)$adj.r.squared,0)` for a start, but there is a lot more of variability accounted in R-squared, `r round(summary(fit)$r.squared,2)`, which suggests we have unnecessary variables at play. So let's do the model selection.
+
+```{r}
+fit2<- step(object = fit,direction = 'backward',trace = F)
+```
+
+Now check a summary of the result.
+
+```{r}
+summary(fit2)
+```
+
+Look at that, now we have a good adjusted R-squared of `r round(summary(fit2)$adj.r.squared,2)` and R-squared of `r round(summary(fit2)$r.squared,2)`. It's pretty good.That means up to `r round(summary(fit2)$r.squared*100,2)`% of the response variable is explained by a model made of the explanatory variables cyl + hp + wt + am. Generally, multiple regression linear models depend on the following assumptions:
+
+* the residual of the model are nearly normal
+
+* the variability of the residuals is nearly normal
+
+* the residual are independent, and
+
+* each variable is linearly related to the outcome.
+
+To check model assumptions, we are gonna need to look some graphs. First, the normal probability plot.
+
+```{r fig.show='hide'}
+g<- ggplot(data = fit2, aes(sample = .resid))
+g<- g + stat_qq() + stat_qq_line(color = 'cyan')
+g<- g + theme_bw()
+g<- g + labs(title = 'Normal probability plot', x = 'Theoretical', y = 'Sample')
+g
+```
+
+It seems like we might have some residual outliers, but generally it seems good enough. Now, to check if the variance is approximately constant, the absolute values of residual against fitted values.
+
+```{r fig.show='hide'}
+g<- ggplot(data = fit2, aes(x = .fitted, y = abs(.resid))) 
+g<- g + geom_point() 
+g<- g +geom_hline(yintercept = 0, linetype = "dashed") 
+g<- g +labs(title = 'Residual variance',x="Fitted values",y="Residuals")
+g<- g + theme_bw()
+g
+```
+
+Once again, there is two potential outliers but generally it seems good enough. A good way of checking for linear relationship between the response and explanatory variables is to see the how residual varies with each explanatory variables. That way, we account for the other variables in the model at each plot, and not just a bivariate relationship. We are looking for random scatters around 0.           
+
+```{r fig.show='hide'}
+g1<- ggplot(data = fit2, aes(x = mtcars2$hp, y = .resid)) 
+g1<- g1 + geom_point() 
+g1<- g1 +geom_hline(yintercept = 0, linetype = "dashed") 
+g1<- g1 +labs(title = 'Linear relationships',x="Horsepower",y="Residuals")
+g1<- g1 + theme_bw()
+
+g2<- ggplot(data = fit2, aes(x = mtcars2$wt, y = .resid)) 
+g2<- g2 + geom_point() 
+g2<- g2 +geom_hline(yintercept = 0, linetype = "dashed") 
+g2<- g2 +labs(title = ' ',x="Weight (1000lbs)",y="Residuals")
+g2<- g2 + theme_bw()
+
+g3<- ggplot(data = fit2, aes(x = mtcars2$cyl, y = .resid)) 
+g3<- g3 + geom_boxplot() 
+g3<- g3 +geom_hline(yintercept = 0, linetype = "dashed") 
+g3<- g3 +labs(title = ' ',x="Number of cylinders",y="Residuals")
+g3<- g3 + theme_bw()
+
+g4<- ggplot(data = fit2, aes(x = mtcars2$am, y = .resid)) 
+g4<- g4 + geom_boxplot() 
+g4<- g4 +geom_hline(yintercept = 0, linetype = "dashed") 
+g4<- g4 +labs(title = ' ',x="Transmission",y="Residuals")
+g4<- g4 + theme_bw()
+
+ggarrange(g1,g2,g3,g4, nrow = 2, ncol = 2 ) + labs(title = 'adad')
+```
+
+Once again, pretty good results. All residuals seem to be scattered around zero. For the last assumption to check, independence of residual, we only need the observations to be independent. We have no reason to doubt that is the case here. Note that individually we had some variables with p-value higher than the a significance level of 5%, but the checked assumptions of the model and the adjusted R-squared gives great strength to the model. This way, we can say the model conditions are in good shape.
+
+### Results
+
+Let's find the answer to the questions we were interested. From this model, as we have seen, we can say that on average a car with manual transmissions runs 1.8 more miles per (US) gallon than an automatic. That seems like we are ready to say that manual transmissions cars are indeed better. Let's first look at a 95% confidence interval before we can confirm this.
+
+```{r}
+confint(fit2,parm = 'ammanual',level = 0.95)
+```
+Things are not as good as they seemed. At a 95% significance level, the average
+ miles per (US) gallon a manual car runs ranges from `r round(confint(fit2,parm = 'ammanual',level = 0.95)[1],2)` to `r round(confint(fit2,parm = 'ammanual',level = 0.95)[2],2)`. So, this is the level of uncertainty our answer has.
+ 
+### Appendix of figures
+
+```{r echo=F,fig.width=2.5,fig.height=2.5}
+g <- ggplot(data = mtcars2, aes(x = mpg)) 
+g<- g + geom_histogram(binwidth =  5) 
+g<- g + scale_x_continuous(name="Miles per gallon", breaks=seq(0,35,5))
+g<- g + labs(title = 'Miles per (US) gallon data distribution', y = 'Count')
+g<- g + theme_bw()
+g<- g + geom_vline(xintercept = mean(mtcars2$mpg),colour = 'red', size = 1)
+```
+
+```{r echo=F,fig.width=5,fig.height=2.5}
+g1<- ggplot(data = fit2, aes(sample = .resid))
+g1<- g1 + stat_qq() + stat_qq_line(color = 'cyan')
+g1<- g1 + labs(title = 'Normal probability plot', x = 'Theoretical', y = 'Sample')
+g1<- g1 + theme_bw()
+```
+
+
+```{r echo=F}
+g2<- ggplot(data = fit2, aes(x = .fitted, y = abs(.resid))) 
+g2<- g2 + geom_point() 
+g2<- g2 +geom_hline(yintercept = 0, linetype = "dashed") 
+g2<- g2 +labs(title = 'Residual variance',x="Fitted values",y="Residuals")
+g2<- g2 + theme_bw()
+```
+
+
+```{r echo=F,fig.width=15,fig.height=5}
+ggarrange(g,g1,g2,ncol=3,nrow = 1)
+```
+
+```{r echo=F,fig.width=10,fig.height=5}
+g1<- ggplot(data = fit2, aes(x = mtcars2$hp, y = .resid)) 
+g1<- g1 + geom_point() 
+g1<- g1 +geom_hline(yintercept = 0, linetype = "dashed") 
+g1<- g1 +labs(title = 'Linear relationships',x="Horsepower",y="Residuals")
+g1<- g1 + theme_bw()
+
+g2<- ggplot(data = fit2, aes(x = mtcars2$wt, y = .resid)) 
+g2<- g2 + geom_point() 
+g2<- g2 +geom_hline(yintercept = 0, linetype = "dashed") 
+g2<- g2 +labs(title = ' ',x="Weight (1000lbs)",y="Residuals")
+g2<- g2 + theme_bw()
+
+g3<- ggplot(data = fit2, aes(x = mtcars2$cyl, y = .resid)) 
+g3<- g3 + geom_boxplot() 
+g3<- g3 +geom_hline(yintercept = 0, linetype = "dashed") 
+g3<- g3 +labs(title = ' ',x="Number of cylinders",y="Residuals")
+g3<- g3 + theme_bw()
+
+g4<- ggplot(data = fit2, aes(x = mtcars2$am, y = .resid)) 
+g4<- g4 + geom_boxplot() 
+g4<- g4 +geom_hline(yintercept = 0, linetype = "dashed") 
+g4<- g4 +labs(title = ' ',x="Transmission",y="Residuals")
+g4<- g4 + theme_bw()
+
+ggarrange(g1,g2,g3,g4, nrow = 2, ncol = 2 ) + labs(title = 'adad')
+```
+
+### Reference
+
+[^1]: [Open Intro Statistics](https://www.openintro.org/book/stat/)
+
+
+
+
+
+
