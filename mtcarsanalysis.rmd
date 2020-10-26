@@ -2,7 +2,9 @@
 title: "Exploring miles per (US) gallon relationship with type of transmission"
 author: "Wildson B B Lima"
 date: "25/10/2020"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -27,7 +29,7 @@ We are interested here in exploring a dataset to find the relationship between m
 
 * Quantifying the MPG difference between automatic and manual transmissions.
 
-We were able to model a linear regression from which we found that on average a manual car can run 1.8 more miles per (US) gallon than a automatic car. This result is very uncertain from a 95% significance level, though, with a confidence interval ranging from -1.06 to 4.68 mpg.  
+We were able to model a linear regression from which we found that on average a manual car can runs 1.8 more miles per (US) gallon than a automatic car. This result is very uncertain from a 95% significance level, though, with a confidence interval ranging from -1.06 to 4.68 mpg.  
 
 ### Data
 
@@ -61,7 +63,7 @@ Now, let's take a look at the summary of the data.
 summary(mtcars2$mpg)
 ```
 
-Ok, that seems good enough. We can see mpg mean here is 20.09 and data ranges from 15.43 to 33.9 mpg. A histogram better illustrates how data is distributed. So we do one here.
+Ok, that seems good enough. We can see mpg mean here is 20.09 and data ranges from 15.43 to 33.9 mpg. A histogram better illustrates how data is distributed. So we do one here [appendix].
 
 ```{r fig.show='hide'}
 g <- ggplot(data = mtcars2, aes(x = mpg)) 
@@ -84,7 +86,7 @@ fit <- lm(data = mtcars2, formula = mpg ~ .)
 summary(fit)
 ```
 
-We have good adjusted R-squared of `r round(summary(fit)$adj.r.squared,0)` for a start, but there is a lot more of variability accounted in R-squared, `r round(summary(fit)$r.squared,2)`, which suggests we have unnecessary variables at play. So let's do the model selection.
+We have good adjusted R-squared of `r round(summary(fit)$adj.r.squared,2)` for a start, but there is a lot more of variability accounted in R-squared, `r round(summary(fit)$r.squared,2)`, which suggests we have unnecessary variables at play. So let's do the model selection.
 
 ```{r}
 fit2<- step(object = fit,direction = 'backward',trace = F)
@@ -106,7 +108,7 @@ Look at that, now we have a good adjusted R-squared of `r round(summary(fit2)$ad
 
 * each variable is linearly related to the outcome.
 
-To check model assumptions, we are gonna need to look some graphs. First, the normal probability plot.
+To check model assumptions, we are gonna need to look some graphs. First, the normal probability plot [appendix].
 
 ```{r fig.show='hide'}
 g<- ggplot(data = fit2, aes(sample = .resid))
@@ -116,7 +118,7 @@ g<- g + labs(title = 'Normal probability plot', x = 'Theoretical', y = 'Sample')
 g
 ```
 
-It seems like we might have some residual outliers, but generally it seems good enough. Now, to check if the variance is approximately constant, the absolute values of residual against fitted values.
+It seems like we might have some residual outliers, but generally it seems good enough. Now, to check if the variance is approximately constant, the absolute values of residual against fitted values [appendix].
 
 ```{r fig.show='hide'}
 g<- ggplot(data = fit2, aes(x = .fitted, y = abs(.resid))) 
@@ -127,7 +129,7 @@ g<- g + theme_bw()
 g
 ```
 
-Once again, there is two potential outliers but generally it seems good enough. A good way of checking for linear relationship between the response and explanatory variables is to see the how residual varies with each explanatory variables. That way, we account for the other variables in the model at each plot, and not just a bivariate relationship. We are looking for random scatters around 0.           
+Once again, there is two potential outliers but generally it seems good enough. A good way of checking for linear relationship between the response and explanatory variables is to see the how residual varies with each explanatory variables. That way, we account for the other variables in the model at each plot, and not just a bivariate relationship. We are looking for random scatters around 0 [appendix].           
 
 ```{r fig.show='hide'}
 g1<- ggplot(data = fit2, aes(x = mtcars2$hp, y = .resid)) 
@@ -229,12 +231,7 @@ g4<- g4 + theme_bw()
 ggarrange(g1,g2,g3,g4, nrow = 2, ncol = 2 ) + labs(title = 'adad')
 ```
 
-### Reference
 
 [^1]: [Open Intro Statistics](https://www.openintro.org/book/stat/)
-
-
-
-
 
 
